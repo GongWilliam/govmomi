@@ -27,13 +27,21 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 )
 
+// VAPI REST Paths
 const (
-	Path              = "/rest/com/vmware"
-	SessionPath       = "/cis/session"
-	CategoryPath      = "/cis/tagging/category"
-	TagPath           = "/cis/tagging/tag"
-	AssociationPath   = "/cis/tagging/tag-association"
-	SessionCookieName = "vmware-api-session-id"
+	Path                         = "/rest/com/vmware"
+	SessionPath                  = "/cis/session"
+	CategoryPath                 = "/cis/tagging/category"
+	TagPath                      = "/cis/tagging/tag"
+	AssociationPath              = "/cis/tagging/tag-association"
+	LibraryPath                  = "/content/library"
+	LibraryItemPath              = "/content/library/item"
+	LibraryItemFilePath          = "/content/library/item/file"
+	LibraryItemUpdateSession     = "/content/library/item/update-session"
+	LibraryItemUpdateSessionFile = "/content/library/item/updatesession/file"
+	LocalLibraryPath             = "/content/local-library"
+	VCenterOVFLibraryItem        = "/vcenter/ovf/library-item"
+	SessionCookieName            = "vmware-api-session-id"
 )
 
 // AssociatedObject is the same structure as types.ManagedObjectReference,
@@ -51,19 +59,18 @@ func (o AssociatedObject) Reference() types.ManagedObjectReference {
 
 // Association for tag-association requests.
 type Association struct {
-	TagID    string            `json:"tag_id,omitempty"`
 	ObjectID *AssociatedObject `json:"object_id,omitempty"`
 }
 
 // NewAssociation returns an Association, converting ref to an AssociatedObject.
-func NewAssociation(tagID string, ref mo.Reference) Association {
+func NewAssociation(ref mo.Reference) Association {
 	obj := AssociatedObject(ref.Reference())
 	return Association{
-		TagID:    tagID,
 		ObjectID: &obj,
 	}
 }
 
+// CloneURL defines an interface for cloned urls
 type CloneURL interface {
 	URL() *url.URL
 }
@@ -73,10 +80,15 @@ type Resource struct {
 	u *url.URL
 }
 
+// URL creates a URL resource
 func URL(c CloneURL, path string) *Resource {
 	r := &Resource{u: c.URL()}
 	r.u.Path = Path + path
 	return r
+}
+
+func (r *Resource) String() string {
+	return r.u.String()
 }
 
 // WithID appends id to the URL.Path
@@ -90,6 +102,14 @@ func (r *Resource) WithAction(action string) *Resource {
 	r.u.RawQuery = url.Values{
 		"~action": []string{action},
 	}.Encode()
+	return r
+}
+
+// WithParameter sets adds a parameter to the URL.RawQuery
+func (r *Resource) WithParameter(name string, value string) *Resource {
+	parameter := url.Values{}
+	parameter.Set(name, value)
+	r.u.RawQuery = parameter.Encode()
 	return r
 }
 

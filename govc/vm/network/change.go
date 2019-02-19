@@ -59,9 +59,11 @@ func (cmd *change) Usage() string {
 func (cmd *change) Description() string {
 	return `Change network DEVICE configuration.
 
+Note that '-net' is currently required with '-net.address', even when not changing the VM network.
+
 Examples:
   govc vm.network.change -vm $vm -net PG2 ethernet-0
-  govc vm.network.change -vm $vm -net.address 00:00:0f:2e:5d:69 ethernet-0
+  govc vm.network.change -vm $vm -net PG2 -net.address 00:00:0f:2e:5d:69 ethernet-0
   govc device.info -vm $vm ethernet-*`
 }
 
@@ -83,7 +85,11 @@ func (cmd *change) Run(ctx context.Context, f *flag.FlagSet) error {
 
 	// Set network if specified as extra argument.
 	if f.NArg() > 1 {
-		_ = cmd.NetworkFlag.Set(f.Arg(1))
+		err = cmd.NetworkFlag.Set(f.Arg(1))
+		if err != nil {
+			return errors.New(fmt.Sprintf("couldn't set specified network %v",
+				err))
+		}
 	}
 
 	devices, err := vm.Device(ctx)

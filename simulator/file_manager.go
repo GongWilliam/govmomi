@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/simulator/esx"
@@ -178,7 +179,7 @@ func (f *FileManager) moveDatastoreFile(req *types.MoveDatastoreFile_Task) types
 	if !isTrue(req.Force) {
 		_, err := os.Stat(dst)
 		if err == nil {
-			return f.fault(dst, nil, new(types.FileAlreadyExistsFault))
+			return f.fault(dst, nil, new(types.FileAlreadyExists))
 		}
 	}
 
@@ -216,11 +217,11 @@ func (f *FileManager) copyDatastoreFile(req *types.CopyDatastoreFile_Task) types
 	if !isTrue(req.Force) {
 		_, err := os.Stat(dst)
 		if err == nil {
-			return f.fault(dst, nil, new(types.FileAlreadyExistsFault))
+			return f.fault(dst, nil, new(types.FileAlreadyExists))
 		}
 	}
 
-	r, err := os.Open(src)
+	r, err := os.Open(filepath.Clean(src))
 	if err != nil {
 		return f.fault(dst, err, new(types.CannotAccessFile))
 	}

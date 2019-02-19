@@ -28,6 +28,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/vmware/govmomi/ovf"
@@ -53,7 +54,7 @@ func (f *ArchiveFlag) Process(ctx context.Context) error {
 }
 
 func (f *ArchiveFlag) ReadOvf(fpath string) ([]byte, error) {
-	r, _, err := f.Archive.Open(fpath)
+	r, _, err := f.Open(fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +64,9 @@ func (f *ArchiveFlag) ReadOvf(fpath string) ([]byte, error) {
 }
 
 func (f *ArchiveFlag) ReadEnvelope(data []byte) (*ovf.Envelope, error) {
-	r := bytes.NewReader(data)
-
-	e, err := ovf.Unmarshal(r)
+	e, err := ovf.Unmarshal(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ovf: %s", err.Error())
+		return nil, fmt.Errorf("failed to parse ovf: %s", err)
 	}
 
 	return e, nil
@@ -152,7 +151,7 @@ func isRemotePath(path string) bool {
 }
 
 func (o Opener) OpenLocal(path string) (io.ReadCloser, int64, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, 0, err
 	}
