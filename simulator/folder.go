@@ -22,7 +22,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -301,8 +300,9 @@ func (c *createVM) Run(task *Task) (types.AnyType, types.BaseMethodFault) {
 	}
 
 	vm.Guest = &types.GuestInfo{
-		ToolsStatus:  types.VirtualMachineToolsStatusToolsNotInstalled,
-		ToolsVersion: "0",
+		ToolsStatus:        types.VirtualMachineToolsStatusToolsNotInstalled,
+		ToolsVersion:       "0",
+		ToolsRunningStatus: string(types.VirtualMachineToolsRunningStatusGuestToolsNotRunning),
 	}
 
 	vm.Summary.Guest = &types.VirtualMachineGuestSummary{
@@ -490,7 +490,7 @@ func (f *Folder) CreateDVSTask(req *types.CreateDVS_Task) soap.HasFault {
 			return nil, &types.InvalidArgument{InvalidProperty: "name"}
 		}
 
-		dvs.Uuid = uuid.New().String()
+		dvs.Uuid = newUUID(dvs.Name)
 
 		f.putChild(dvs)
 

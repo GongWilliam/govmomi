@@ -62,7 +62,7 @@ load test_helper
   port=$(govc env -x GOVC_URL_PORT)
   vcsim_stop
 
-  vcsim_start -httptest.serve="$url" # reuse free port selection from above
+  vcsim_start -l "$url" # reuse free port selection from above
 
   run govc object.collect -s -type h host/DC0_H0 summary.config.port
   assert_success "$port"
@@ -71,7 +71,7 @@ load test_helper
 
   vcsim_stop
 
-  VCSIM_HOST_PORT_UNIQUE=true vcsim_start -httptest.serve="$url"
+  VCSIM_HOST_PORT_UNIQUE=true vcsim_start -l "$url"
 
   hosts=$(curl -sk "https://$url/debug/vars" | jq .vcsim.Model.Host)
   ports=$(govc object.collect -s -type h / summary.config.port | uniq -u | wc -l)
@@ -127,6 +127,19 @@ load test_helper
 
 @test "vcsim vm.create" {
   vcsim_env
+
+  # VM uuids are stable, based on path to .vmx
+  run govc object.collect -s vm/DC0_H0_VM0 config.uuid config.instanceUuid
+  assert_success "$(printf "265104de-1472-547c-b873-6dc7883fb6cb\nb4689bed-97f0-5bcd-8a4c-07477cc8f06f")"
+
+  dups=$(govc object.collect -s -type m / config.uuid | sort | uniq -d | wc -l)
+  [ "$dups" = "0" ]
+
+  run govc object.collect -s host/DC0_H0/DC0_H0 summary.hardware.uuid
+  assert_success dcf7fb3c-4a1c-5a05-b730-5e09f3704e2f
+
+  dups=$(govc object.collect -s -type m / summary.hardware.uuid | sort | uniq -d | wc -l)
+  [ "$dups" = "0" ]
 
   run govc vm.create foo.yakity
   assert_success
@@ -249,13 +262,7 @@ load test_helper
   [[ "$url" == *"https://127.0.0.1:"* ]]
   vcsim_stop
 
-  vcsim_start -dc 0 -httptest.serve 0.0.0.0:0
-  url=$(govc option.ls vcsim.server.url)
-  [[ "$url" != *"https://127.0.0.1:"* ]]
-  [[ "$url" != *"https://[::]:"* ]]
-  vcsim_stop
-
-  vcsim_start -dc 0 -l :0 -httptest.serve ""
+  vcsim_start -dc 0 -l 0.0.0.0:0
   url=$(govc option.ls vcsim.server.url)
   [[ "$url" != *"https://127.0.0.1:"* ]]
   [[ "$url" != *"https://[::]:"* ]]
@@ -289,4 +296,57 @@ load test_helper
 
   user=$(jq -r .value.user <<<"$output")
   assert_equal "$USER" "$user"
+}
+
+@test "vcsim auth" {
+  vcsim_start -username nobody -password nothing
+
+  run govc ls
+  assert_success
+
+  run env GOVC_USERNAME=nobody GOVC_PASSWORD=nothing govc ls -u "$(govc env GOVC_URL)"
+  assert_success
+
+  run govc ls -u "user:pass@$(govc env GOVC_URL)"
+  assert_failure
+
+  run env GOVC_USERNAME=user GOVC_PASSWORD=pass govc ls -u "$(govc env GOVC_URL)"
+  assert_failure
+
+  vcsim_stop
+
+  dir=$(mktemp -d govc-test-XXXXX)
+  echo nobody > "$dir/username"
+  echo nothing > "$dir/password"
+
+  vcsim_start -username "$dir/username" -password "$dir/password"
+
+  run govc ls
+  assert_success
+
+  run env GOVC_USERNAME="$dir/username" GOVC_PASSWORD="$dir/password" govc ls -u "$(govc env GOVC_URL)"
+  assert_success
+
+  run govc ls -u "user:pass@$(govc env GOVC_URL)"
+  assert_failure
+
+  vcsim_stop
+
+  rm -rf "$dir"
+}
+
+@test "vcsim ovftool" {
+  if ! ovftool -h >/dev/null ; then
+    skip "requires ovftool"
+  fi
+
+  vcsim_env
+
+  url=$(govc env GOVC_URL)
+
+  run ovftool --noSSLVerify --acceptAllEulas -ds=LocalDS_0 --network=DC0_DVPG0 "$GOVC_IMAGES/$TTYLINUX_NAME.ova" "vi://user:pass@$url/DC0/host/DC0_C0/DC0_C0_H1"
+  assert_success
+
+  run govc vm.destroy "$TTYLINUX_NAME"
+  assert_success
 }

@@ -97,7 +97,7 @@ func TestSimulator(t *testing.T) {
 	sort.Strings(qids)
 	sort.Strings(cids)
 
-	// Check whether ids retreived from QueryProfile and RetrieveContent are identical.
+	// Check whether ids retrieved from QueryProfile and RetrieveContent are identical.
 	if !reflect.DeepEqual(qids, cids) {
 		t.Error("ids mismatch")
 	}
@@ -211,9 +211,19 @@ func TestSimulator(t *testing.T) {
 	t.Logf("VSAN Profile: %q successfully created", vsanProfileID.UniqueId)
 
 	// 6. Verify if profile created exists by issuing a RetrieveContent request.
-	_, err = pc.RetrieveContent(ctx, []types.PbmProfileId{*vsanProfileID})
+	profiles, err := pc.RetrieveContent(ctx, []types.PbmProfileId{*vsanProfileID})
 	if err != nil {
 		t.Fatal(err)
+	}
+	for _, profile := range profiles {
+		if cap, ok := profile.(*types.PbmCapabilityProfile); ok {
+			_, ok = cap.Constraints.(*types.PbmCapabilitySubProfileConstraints)
+			if !ok {
+				t.Errorf("cap=%T", cap.Constraints)
+			}
+		} else {
+			t.Errorf("profile=%T", profile)
+		}
 	}
 	t.Logf("Profile: %q exists on vCenter", vsanProfileID.UniqueId)
 

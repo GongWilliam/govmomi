@@ -285,6 +285,10 @@ func (v VirtualMachine) WaitForNetIP(ctx context.Context, v4 bool, device ...str
 		return true
 	})
 
+	if err != nil {
+		return nil, err
+	}
+
 	if len(device) != 0 {
 		// Only wait for specific NIC(s)
 		macs = make(map[string][]string)

@@ -356,7 +356,9 @@ func (cmd *collect) Run(ctx context.Context, f *flag.FlagSet) error {
 				return cerr
 			}
 
-			defer v.Destroy(ctx)
+			defer func() {
+				_ = v.Destroy(ctx)
+			}()
 
 			for _, kind := range cmd.kind {
 				filter.Add(v.Reference(), kind, props, v.TraversalSpec())
@@ -413,7 +415,6 @@ func (cmd *collect) Run(ctx context.Context, f *flag.FlagSet) error {
 				if matches > 0 {
 					return true
 				}
-
 				return false
 			}
 

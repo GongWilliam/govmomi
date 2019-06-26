@@ -1,11 +1,11 @@
 /*
-Copyright (c) 2018 VMware, Inc. All Rights Reserved.
+Copyright (c) 2019 VMware, Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,17 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package update
+package group
 
 import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"text/tabwriter"
 
 	"github.com/vmware/govmomi/govc/cli"
 	"github.com/vmware/govmomi/govc/flags"
-	"github.com/vmware/govmomi/vapi/library"
-	"github.com/vmware/govmomi/vapi/rest"
+	"github.com/vmware/govmomi/govc/sso"
+	"github.com/vmware/govmomi/ssoadmin"
+	"github.com/vmware/govmomi/ssoadmin/types"
 )
 
 type ls struct {
@@ -33,43 +36,54 @@ type ls struct {
 }
 
 func init() {
-	cli.Register("library.item.update.ls", &ls{})
+	cli.Register("sso.group.ls", &ls{})
 }
 
 func (cmd *ls) Register(ctx context.Context, f *flag.FlagSet) {
 	cmd.ClientFlag, ctx = flags.NewClientFlag(ctx)
-	cmd.OutputFlag, ctx = flags.NewOutputFlag(ctx)
 	cmd.ClientFlag.Register(ctx, f)
+
+	cmd.OutputFlag, ctx = flags.NewOutputFlag(ctx)
 	cmd.OutputFlag.Register(ctx, f)
+}
+
+func (cmd *ls) Description() string {
+	return `List SSO groups.
+
+Examples:
+  govc sso.group.ls -s`
 }
 
 func (cmd *ls) Process(ctx context.Context) error {
 	if err := cmd.ClientFlag.Process(ctx); err != nil {
 		return err
 	}
-	return nil
+	return cmd.OutputFlag.Process(ctx)
 }
 
-func (cmd *ls) Description() string {
-	return `List library item update sessions.
+type groupResult []types.AdminGroup
 
-Examples:
-  govc library.item.update.ls
-  govc library.item.update.ls -json | jq .`
+func (r groupResult) Dump() interface{} {
+	return []types.AdminGroup(r)
+}
+
+func (r groupResult) Write(w io.Writer) error {
+	tw := tabwriter.NewWriter(w, 2, 0, 2, ' ', 0)
+	for _, info := range r {
+		fmt.Fprintf(tw, "%s\t%s\n", info.Id.Name, info.Details.Description)
+	}
+	return tw.Flush()
 }
 
 func (cmd *ls) Run(ctx context.Context, f *flag.FlagSet) error {
-	return cmd.WithRestClient(ctx, func(c *rest.Client) error {
-		m := library.NewManager(c)
-		var err error
+	arg := f.Arg(0)
 
-		sessions, err := m.ListLibraryItemUpdateSession(ctx)
+	return sso.WithClient(ctx, cmd.ClientFlag, func(c *ssoadmin.Client) error {
+		info, err := c.FindGroups(ctx, arg)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("%+v\n", sessions)
-
-		return nil
+		return cmd.WriteResult(groupResult(info))
 	})
 }
